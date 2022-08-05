@@ -1,0 +1,10 @@
+.idea
+.idea/*
+models/__pycache__
+models/__pycache__/*
+datasets/__pycache__
+datasets/__pycache__/*
+runs
+runs/*
+datasets
+datasets/*
