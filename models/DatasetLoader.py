@@ -23,6 +23,8 @@ class MovieLens1M(DatasetLoader):
         self.contain_time = True
         self.fpath = os.path.join(data_dir, 'ratings.dat')
         self.df = None
+        self.user_codes_dict = None
+        self.item_codes_dict = None
 
     def load(self):
         # Load data
@@ -32,6 +34,12 @@ class MovieLens1M(DatasetLoader):
                          names=['user', 'item', 'rate', 'time'])
         # TODO: Remove negative rating?
         # df = df[df['rate'] >= 3]
+        self.df['user'] = pd.Categorical(self.df['user'])
+        self.df['item'] = pd.Categorical(self.df['item'])
+        self.user_codes_dict = dict(zip(self.df['user'].cat.codes, self.df['user']))
+        self.item_codes_dict = dict(zip(self.df['item'].cat.codes, self.df['item']))
+        self.df['user'] = self.df['user'].cat.codes
+        self.df['item'] = self.df['item'].cat.codes
         return self.df
 
     def __iter__(self):
@@ -48,12 +56,15 @@ class MovieLens1M(DatasetLoader):
         else:
             raise StopIteration
 
+
 class MovieLens20M(DatasetLoader):
     def __init__(self, data_dir):
         self.df = None
         self.index = 0
         self.contain_time = True
         self.fpath = os.path.join(data_dir, 'ratings.csv')
+        self.user_codes_dict = None
+        self.item_codes_dict = None
 
     def load(self):
         self.df = pd.read_csv(self.fpath,
@@ -61,6 +72,12 @@ class MovieLens20M(DatasetLoader):
                          names=['user', 'item', 'rate', 'time'],
                          usecols=['user', 'item', 'time'],
                          skiprows=1)
+        # self.df['user'] = pd.Categorical(self.df['user'])
+        # self.df['item'] = pd.Categorical(self.df['item'])
+        # self.user_codes_dict = dict(zip(self.df['user'].cat.codes, self.df['user']))
+        # self.item_codes_dict = dict(zip(self.df['item'].cat.codes, self.df['item']))
+        # self.df['user'] = self.df['user'].cat.codes
+        # self.df['item'] = self.df['item'].cat.codes
         return self.df
 
     def __iter__(self):
@@ -79,17 +96,25 @@ class MovieLens20M(DatasetLoader):
 
 
 class Scistarter(DatasetLoader):
-    def __init__(self, data_dir):
+    def __init__(self, data_dir, filename):
         self.df = None
         self.index = 0
         self.contain_time = False
-        self.fpath = os.path.join(data_dir, 'ratings.csv')
+        self.fpath = os.path.join(data_dir, filename)
+        self.user_codes_dict = None
+        self.item_codes_dict = None
 
     def load(self):
         self.df = pd.read_csv(self.fpath,
                          sep=',',
                          names=['user','item','rate'],
                          skiprows=1)
+        # self.df['user'] = pd.Categorical(self.df['user'])
+        # self.df['item'] = pd.Categorical(self.df['item'])
+        # self.user_codes_dict = dict(zip(self.df['user'].cat.codes, self.df['user']))
+        # self.item_codes_dict = dict(zip(self.df['item'].cat.codes, self.df['item']))
+        # self.df['user'] = self.df['user'].cat.codes
+        # self.df['item'] = self.df['item'].cat.codes
         return self.df
 
     def __iter__(self):
@@ -113,12 +138,20 @@ class Zooniverse(DatasetLoader):
         self.index = 0
         self.contain_time = True
         self.fpath = os.path.join(data_dir, filename)
+        self.user_codes_dict = None
+        self.item_codes_dict = None
 
     def load(self):
         self.df = pd.read_csv(self.fpath,
                          sep=',',
                          names=['user','item','time','rate'],
                          skiprows=1)
+        # self.df['user'] = pd.Categorical(self.df['user'])
+        # self.df['item'] = pd.Categorical(self.df['item'])
+        # self.user_codes_dict = dict(zip(self.df['user'].cat.codes, self.df['user']))
+        # self.item_codes_dict = dict(zip(self.df['item'].cat.codes, self.df['item']))
+        # self.df['user'] = self.df['user'].cat.codes
+        # self.df['item'] = self.df['item'].cat.codes
         return self.df
 
     def __iter__(self):

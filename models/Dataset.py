@@ -1,6 +1,8 @@
 import pandas as pd
 from models.DatasetLoader import *
 import numpy as np
+from tqdm import tqdm
+import scipy.sparse
 
 
 class Dataset:
@@ -10,13 +12,13 @@ class Dataset:
         self.m_dUsers = {}  # Dict - key: user_id(str) value: User obj
         self.m_dItems = {}  # Dict - key: item_id(str) value: Item obj
         self.popularity = {}
-        self.m_iiStatistics = None
-        self.RatingsCount = 0
         self.head_items = {}
         self.tail_items = {}
-        self.item_probability = {}  # pr_i
-        self.item_item_co_probability = {}  # pr_i ^ pr_j
+        self.m_iiStatistics = None
+        self.RatingsCount = 0
+        self.item_statistics = ItemStatistics()
         self.data = None
+        self.df = None
         self.USERS = []  # array of User objects
         self.ITEMS = []  # array of Item objects
 
@@ -37,16 +39,25 @@ class Dataset:
                     self.popularity[item_id] += 1
                 else:
                     self.popularity[item_id] = 1
-        sorted_dict = {k: v for k, v in sorted(self.popularity.items(), key=lambda item: item[1])}
+        sorted_dict = {k: v for k, v in sorted(self.popularity.items(), key=lambda item: -item[1])}
         index = 0
+        total_contributions = sum(sorted_dict.values())
+        self.item_statistics.total_entries = total_contributions
         for item_id in sorted_dict:
             if index < head_tail_ratio * len(sorted_dict):
                 self.head_items[item_id] = sorted_dict[item_id]
             else:
                 self.tail_items[item_id] = sorted_dict[item_id]
             index += 1
-            total_contributions = sum(sorted_dict.values())
-            self.item_probability[item_id] = sorted_dict[item_id] / total_contributions
+            self.item_statistics.add_item_probability(item_id, sorted_dict[item_id])
+
+    def calculate_co_count(self):
+        sparse_arr = scipy.sparse.coo_matrix((self.df.rate.values, (self.df.user, self.df.item)))
+        print(sparse_arr.shape)
+        arr = sparse_arr.toarray()
+        for item_i in tqdm(range(sparse_arr.shape[1])):
+            for item_j in range(item_i + 1, sparse_arr.shape[1]):
+                self.item_statistics.add_co_count(item_i, item_j, sum(np.logical_and(arr[item_j], arr[item_i])) / len(self.USERS))
 
     def read_dataset_from_csv(self, dataset_name, filename=None):
         if dataset_name == 'ml-1m':
@@ -54,11 +65,12 @@ class Dataset:
         elif dataset_name == 'ml-20m':
             self.data = MovieLens20M(self.dataset_dir)
         elif dataset_name == 'scistarter':
-            self.data = Scistarter(self.dataset_dir)
+            self.data = Scistarter(self.dataset_dir, filename)
         elif dataset_name == 'zooniverse':
             self.data = Zooniverse(self.dataset_dir, filename)
         else:
             raise NotImplementedError
+        self.df = self.data.load()
         for user, item, rating in self.data:
             self.add_user_item_rating(user, item, rating)
         self.USERS = list(set(self.m_dUsers.values()))
@@ -67,6 +79,9 @@ class Dataset:
     def get_random_item(self):
         index = np.random.randint(0, len(list(self.m_dItems.keys())))
         return list(self.m_dItems.keys())[index]
+
+    def get_item_statistics(self):
+        return self.item_statistics
 
 
 class User:
@@ -111,3 +126,34 @@ class Item:
 
     def users(self):
         return self.user_ratings.values()
+
+
+class ItemStatistics:
+
+    def __init__(self):
+        self.item_count = {}
+        self.item_probability = {}  # pr_i
+        self.item_item_co_probability = {}  # pr_i ^ pr_j
+        self.total_entries = 0
+
+    def add_item_probability(self, iid, count):
+        self.item_probability[iid] = count / self.total_entries
+        self.item_count[iid] = count
+
+    def add_co_count(self, iid1, iid2, count):
+        self.item_item_co_probability[(iid1, iid2)] = count
+        self.item_item_co_probability[(iid2, iid1)] = count
+
+    def get_item_count(self, iid1):
+        if iid1 in self.item_count:
+            return self.item_count[iid1]
+
+    def get_co_count(self, iid1, iid2):
+        if (iid1, iid2) in self.item_item_co_probability:
+            return self.item_item_co_probability[(iid1, iid2)]
+        else:
+            return 0
+
+    def get_item_probability(self, iid1):
+        if iid1 in self.item_probability:
+            return self.item_probability[iid1]

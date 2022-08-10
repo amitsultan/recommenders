@@ -1,19 +1,64 @@
-import numpy as np
-
-from models.Dataset_guy import *
-from models.BPR_guy import *
+import matplotlib.pyplot as plt
+from models.BPR import *
 from models.Metrics import *
 
-if __name__ == "__main__":
-    # data = Dataset('datasets/zooniverse/')
-    # data.read_dataset_from_csv('zooniverse', 'extended_ds.csv')
-    # data.calculate_popularity()
-    # print('Done loading main dataset + popularity calculation')
+#  run a & b should have the same metrics and k_lst sizes
+def record_experiment(name, run_a, run_b, title_a, title_b):
+    fig, ax = plt.subplots(1, len(list(run_a.keys())))
+    index = 0
+    for metric in run_a.keys():
+        metric_a = run_a[metric]
+        metric_b = run_b[metric]
+        ax[index].set_title(f'{metric} comparision of models: [{title_a}, {title_b}]')
+        ax[index].plot(metric_a['k_lst'], metric_a['values'], label='title_a')
+        ax[index].plot(metric_b['k_lst'], metric_b['values'], label='title_b')
+        ax[index].set_xlabel('K value')
+        ax[index].set_ylabel(f'{metric} value')
+        index += 1
+    plt.show()
 
+def run_scistarter_experiment(metric_config):
+    train = Dataset('datasets/scistarter/')
+    train.read_dataset_from_csv('scistarter', 'scistarter_train.csv')
+    train.calculate_popularity()
+    print('Done loading train dataset + popularity calculation')
+    train.calculate_co_count()
+    print('Done CoCount calculation')
+
+    test = Dataset('datasets/scistarter/')
+    test.read_dataset_from_csv('scistarter', 'scistarter_test.csv')
+    # test.calculate_popularity()
+    print('Done loading test dataset + popularity calculation')
+
+
+    #is that correct?
+    test.item_statistics = train.item_statistics
+    test.popularity = train.popularity
+    test.head_items = train.head_items
+    test.tail_items = train.tail_items
+
+    bpr = BPR(100, train)
+    bpr.SGD(train, 5)
+    a = compute_metrics(bpr, test, metric_config)
+    print('done SGD')
+    print('computing lift')
+    b = compute_metrics(bpr, test, metric_config, with_lift=True)
+    print('no lift')
+    for k, v in a.items():
+        print(f'{k}: {v}')
+    print('lift')
+    for k, v in b.items():
+        print(f'{k}: {v}')
+    record_experiment('Scistarter', a, b, 'BPR', 'Lift-Boosted BPR')
+
+
+def run_zooniverse_experiment():
     train = Dataset('datasets/zooniverse/')
     train.read_dataset_from_csv('zooniverse', 'train_jun.csv')
     # train.calculate_popularity()
     print('Done loading train dataset + popularity calculation')
+    train.calculate_co_count()
+    print('Done CoCount calculation')
 
     test = Dataset('datasets/zooniverse/')
     test.read_dataset_from_csv('zooniverse', 'test_jun.csv')
@@ -22,8 +67,23 @@ if __name__ == "__main__":
 
     bpr = BPR(100, train)
     bpr.SGD(train, 5)
-    compute_metrics(bpr, test, {'recall': [1, 2, 3, 5, 10], 'hitrate': [1, 2, 3, 5, 10], 'precision': [1, 2, 3, 5, 10]})
+    a = compute_metrics(bpr, test, {'recall': [1, 2, 3, 5, 10], 'hitrate': [1, 2, 3, 5, 10], 'precision': [1, 2, 3, 5, 10]})
     print('done SGD')
+    print('computing lift')
+    b = compute_metrics(bpr, test, {'recall': [1, 2, 3, 5, 10], 'hitrate': [1, 2, 3, 5, 10], 'precision': [1, 2, 3, 5, 10]}, with_lift=True)
+    print('no lift')
+    print(a)
+    print('lift')
+    print(b)
+
+if __name__ == "__main__":
+    metric_config = {'recall': [1, 2, 3, 5, 10],
+                     'hitrate': [1, 2, 3, 5, 10],
+                     'head_hitrate': [1, 2, 3, 5, 10],
+                     'tail_hitrate': [1, 2, 3, 5, 10],
+                     'precision': [1, 2, 3, 5, 10]}
+    run_scistarter_experiment(metric_config)
+    # run_zooniverse_experiment()
 
 
 
