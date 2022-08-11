@@ -1,21 +1,35 @@
 import matplotlib.pyplot as plt
 from models.BPR import *
 from models.Metrics import *
+import json
+from datetime import datetime
+import os
+
+EXPERIMENTS_PATH = 'experiments'
+
 
 #  run a & b should have the same metrics and k_lst sizes
-def record_experiment(name, run_a, run_b, title_a, title_b):
-    fig, ax = plt.subplots(1, len(list(run_a.keys())))
+def record_experiment(name, run_a, run_b, title_a, title_b, metric_config):
     index = 0
+    dt = datetime.now()
+    ts = datetime.timestamp(dt)
+    path = os.path.join(EXPERIMENTS_PATH, f'{name}_{str(int(ts))}')
+    os.mkdir(path)
+    with open(f'{path}/metric_config.json', 'w') as fp:
+        json.dump(metric_config, fp)
     for metric in run_a.keys():
+        fig, ax = plt.subplots()
         metric_a = run_a[metric]
         metric_b = run_b[metric]
-        ax[index].set_title(f'{metric} comparision of models: [{title_a}, {title_b}]')
-        ax[index].plot(metric_a['k_lst'], metric_a['values'], label='title_a')
-        ax[index].plot(metric_b['k_lst'], metric_b['values'], label='title_b')
-        ax[index].set_xlabel('K value')
-        ax[index].set_ylabel(f'{metric} value')
+        ax.set_title(f'{metric} comparision of models: [{title_a}, {title_b}]')
+        ax.plot(metric_a['k_lst'], metric_a['values'], label=f'{title_a}')
+        ax.plot(metric_b['k_lst'], metric_b['values'], label=f'{title_b}')
+        ax.set_xlabel('K value')
+        ax.set_ylabel(f'{metric} value')
+        plt.legend()
         index += 1
-    plt.show()
+        plt.savefig(f'{path}/{metric}.png')
+
 
 def run_scistarter_experiment(metric_config):
     train = Dataset('datasets/scistarter/')
@@ -49,10 +63,10 @@ def run_scistarter_experiment(metric_config):
     print('lift')
     for k, v in b.items():
         print(f'{k}: {v}')
-    record_experiment('Scistarter', a, b, 'BPR', 'Lift-Boosted BPR')
+    record_experiment('Scistarter', a, b, 'BPR', 'Lift-Boosted BPR', metric_config)
 
 
-def run_zooniverse_experiment():
+def run_zooniverse_experiment(metric_config):
     train = Dataset('datasets/zooniverse/')
     train.read_dataset_from_csv('zooniverse', 'train_jun.csv')
     # train.calculate_popularity()
@@ -67,23 +81,29 @@ def run_zooniverse_experiment():
 
     bpr = BPR(100, train)
     bpr.SGD(train, 5)
-    a = compute_metrics(bpr, test, {'recall': [1, 2, 3, 5, 10], 'hitrate': [1, 2, 3, 5, 10], 'precision': [1, 2, 3, 5, 10]})
+    a = compute_metrics(bpr, test, metric_config)
     print('done SGD')
     print('computing lift')
-    b = compute_metrics(bpr, test, {'recall': [1, 2, 3, 5, 10], 'hitrate': [1, 2, 3, 5, 10], 'precision': [1, 2, 3, 5, 10]}, with_lift=True)
+    b = compute_metrics(bpr, test, metric_config, with_lift=True)
     print('no lift')
-    print(a)
+    for k, v in a.items():
+        print(f'{k}: {v}')
     print('lift')
-    print(b)
+    for k, v in b.items():
+        print(f'{k}: {v}')
+    record_experiment('Scistarter', a, b, 'BPR', 'Lift-Boosted BPR', metric_config)
+
 
 if __name__ == "__main__":
-    metric_config = {'recall': [1, 2, 3, 5, 10],
-                     'hitrate': [1, 2, 3, 5, 10],
-                     'head_hitrate': [1, 2, 3, 5, 10],
-                     'tail_hitrate': [1, 2, 3, 5, 10],
-                     'precision': [1, 2, 3, 5, 10]}
+    k_lst = [i for i in range(1, 21)]
+    metric_config = {'recall': k_lst,
+                     'hitrate': k_lst,
+                     'head_hitrate': k_lst,
+                     'tail_hitrate': k_lst,
+                     'precision': k_lst
+                     }
     run_scistarter_experiment(metric_config)
-    # run_zooniverse_experiment()
+    run_zooniverse_experiment(metric_config)
 
 
 
